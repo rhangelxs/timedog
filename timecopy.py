@@ -167,7 +167,7 @@ class CopyInitialVisitor(TreeVisitor):
 
     def dir(self, dir):
         """Create destination directory, copying stats and ownership."""
-        dst = re.sub(self.src, self.dst, dir)
+        dst = re.sub(re.escape(self.src), self.dst, dir)
         if self.verbose:
             print "mkdir <%s>" % dst
         if not self.dryrun:
@@ -182,7 +182,7 @@ class CopyInitialVisitor(TreeVisitor):
 
     def file(self, file):
         """Process a single file."""
-        dst = re.sub(self.src, self.dst, file)
+        dst = re.sub(re.escape(self.src), self.dst, file)
         if self.verbose:
             print "cp <%s> <%s>" % (file, dst)
         if not self.dryrun:
@@ -202,7 +202,7 @@ class CopyInitialVisitor(TreeVisitor):
     def link(self, link):
         """Copy link to destination."""
         lnk = os.readlink(link)
-        dst = re.sub(self.src, self.dst, link)
+        dst = re.sub(re.escape(self.src), self.dst, link)
         if self.verbose:
             print "ln -s <%s> <%s>" % (lnk, dst)
         if not self.dryrun:
@@ -250,7 +250,7 @@ class CopyBackupVisitor(TreeVisitor):
     def dir(self, dir):
         """Process a directory."""
         stats = os.lstat(dir)
-        old = re.sub(self.src, self.old, dir)
+        old = re.sub(re.escape(self.src), self.old, dir)
         try:
             ostats = os.lstat(old)
         except OSError, e:
@@ -259,7 +259,7 @@ class CopyBackupVisitor(TreeVisitor):
                 ostats = None
             else:
                 raise e
-        dst = re.sub(self.src, self.dst, dir)
+        dst = re.sub(re.escape(self.src), self.dst, dir)
         if ostats is None or stats[stat.ST_INO] != ostats[stat.ST_INO]:
             if self.verbose:
                 print "mkdir <%s>" % dst
@@ -273,7 +273,7 @@ class CopyBackupVisitor(TreeVisitor):
             # Continue traversal...
             visitfiles(dir, self)
         else:
-            odst = re.sub(self.curr, self.prev, dst)
+            odst = re.sub(re.escape(self.curr), self.prev, dst)
             if self.verbose:
                 print "ln <%s> <%s>" % (dst, odst)
             if not self.dryrun:
@@ -283,8 +283,8 @@ class CopyBackupVisitor(TreeVisitor):
     def file(self, file):
         """Process a file."""
         stats = os.lstat(file)
-        old = re.sub(self.src, self.old, file)
-        dst = re.sub(self.src, self.dst, file)
+        old = re.sub(re.escape(self.src), self.old, file)
+        dst = re.sub(re.escape(self.src), self.dst, file)
         try:
             ostats = os.lstat(old)
         except OSError, e:
@@ -309,7 +309,7 @@ class CopyBackupVisitor(TreeVisitor):
             if not self.dryrun or self.extattr:
                 copyxattr(file, dst)
         else:
-            odst = re.sub(self.curr, self.prev, dst)
+            odst = re.sub(re.escape(self.curr), self.prev, dst)
             if self.verbose:
                 print "ln <%s> <%s>" % (dst, odst)
             if not self.dryrun:
@@ -319,8 +319,8 @@ class CopyBackupVisitor(TreeVisitor):
     def link(self, link):
         """Process a link."""
         stats = os.lstat(link)
-        old = re.sub(self.src, self.old, link)
-        dst = re.sub(self.src, self.dst, link)
+        old = re.sub(re.escape(self.src), self.old, link)
+        dst = re.sub(re.escape(self.src), self.dst, link)
         try:
             ostats = os.lstat(old)
         except OSError, e:
@@ -340,7 +340,7 @@ class CopyBackupVisitor(TreeVisitor):
             if not self.dryrun or self.extattr:
                 copyxattr(link, dst)
         else:
-            odst = re.sub(self.curr, self.prev, dst)
+            odst = re.sub(re.escape(self.curr), self.prev, dst)
             if self.verbose:
                 print "ln <%s> <%s>" % (dst, odst)
             if not self.dryrun:
