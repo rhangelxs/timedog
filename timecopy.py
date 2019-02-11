@@ -34,8 +34,15 @@ import subprocess
 import sys
 import time
 import xattr
-import xattr.constants
+try:
+    from xattr.constants import XATTR_NOFOLLOW as XATTR_NOFOLLOW
+except:
+    pass
 
+try:
+    from xattr import XATTR_NOFOLLOW as XATTR_NOFOLLOW
+except:
+    pass
 #
 # TODO: "too many open files" says get_tm_bandsize() on server the last time I tried using this
 #
@@ -74,9 +81,9 @@ def visitfiles(dir, visitor):
             elif stat.S_ISREG(mode):
                 visitor.file(pathname)
             else:
-                print 'WARNING: unknown file %s' % pathname
-        except OSError, e:
-            print "ERROR '{}' processing {}".format(e, pathname)
+                print('WARNING: unknown file %s' % pathname)
+        except OSError as e:
+            print("ERROR '{}' processing {}".format(e, pathname))
 
 
 def chown(path, uid, gid):
@@ -93,7 +100,7 @@ def chown(path, uid, gid):
         # the MNT_IGNORE_OWNERSHIP flag, in which case everything we create
         # there will be owned by the _unknown user and group, no matter what
         # we might want it to be. This is built into the XNU kernel.
-    except OSError, e:
+    except OSError as e:
         if e.errno == errno.EPERM:
             # Strangely root has problems changing symlinks that point
             # to non-existent entries, need to filter out and ignore
@@ -133,16 +140,16 @@ def copyxattr(src, dst):
     dx = xattr.xattr(dst)
     # Make sure not to follow symbolic links as we always work on the
     # links themselves, not the (possibly) non-existent target.
-    attrs = sx.list(xattr.constants.XATTR_NOFOLLOW)
+    attrs = sx.list(XATTR_NOFOLLOW)
     try:
         for name in attrs:
-            value = sx.get(name, xattr.constants.XATTR_NOFOLLOW)
-            dx.set(name, value, xattr.constants.XATTR_NOFOLLOW)
+            value = sx.get(name, XATTR_NOFOLLOW)
+            dx.set(name, value, XATTR_NOFOLLOW)
     except IOError:
         # Fails for certain directories which we will ignore.
         # All others, show a warning.
         if not dst.endswith(("/etc", "/tmp", "/var")):
-            print "WARNING: cannot xattr %s" % dst
+            print("WARNING: cannot xattr %s" % dst)
 
 
 class CopyInitialVisitor(TreeVisitor):
@@ -169,7 +176,7 @@ class CopyInitialVisitor(TreeVisitor):
         """Create destination directory, copying stats and ownership."""
         dst = re.sub(re.escape(self.src), self.dst, dir)
         if self.verbose:
-            print "mkdir <%s>" % dst
+            print("mkdir <%s>" % dst)
         if not self.dryrun:
             os.mkdir(dst)
             shutil.copystat(dir, dst)
@@ -184,7 +191,7 @@ class CopyInitialVisitor(TreeVisitor):
         """Process a single file."""
         dst = re.sub(re.escape(self.src), self.dst, file)
         if self.verbose:
-            print "cp <%s> <%s>" % (file, dst)
+            print("cp <%s> <%s>" % (file, dst))
         if not self.dryrun:
             try:
                 # Copy file contents from snapshot to destination.
@@ -194,8 +201,8 @@ class CopyInitialVisitor(TreeVisitor):
                 # Copy the owner/group values to destination.
                 stats = os.lstat(file)
                 chown(dst, stats[stat.ST_UID], stats[stat.ST_GID])
-            except IOError, e:
-                print "ERROR '{}' processing file {}".format(e, file)
+            except IOError as e:
+                print("ERROR '{}' processing file {}".format(e, file))
         if not self.dryrun or self.extattr:
             copyxattr(file, dst)
 
@@ -204,7 +211,7 @@ class CopyInitialVisitor(TreeVisitor):
         lnk = os.readlink(link)
         dst = re.sub(re.escape(self.src), self.dst, link)
         if self.verbose:
-            print "ln -s <%s> <%s>" % (lnk, dst)
+            print("ln -s <%s> <%s>" % (lnk, dst))
         if not self.dryrun:
             os.symlink(lnk, dst)
             stats = os.lstat(link)
@@ -253,7 +260,7 @@ class CopyBackupVisitor(TreeVisitor):
         old = re.sub(re.escape(self.src), self.old, dir)
         try:
             ostats = os.lstat(old)
-        except OSError, e:
+        except OSError as e:
             if e.errno in (errno.ENOENT, errno.ENOTDIR, errno.EISDIR):
                 # File became directory, or vice versa, or just isn't there.
                 ostats = None
@@ -262,7 +269,7 @@ class CopyBackupVisitor(TreeVisitor):
         dst = re.sub(re.escape(self.src), self.dst, dir)
         if ostats is None or stats[stat.ST_INO] != ostats[stat.ST_INO]:
             if self.verbose:
-                print "mkdir <%s>" % dst
+                print("mkdir <%s>" % dst)
             if not self.dryrun:
                 # Create destination directory, copying stats and ownership.
                 os.mkdir(dst)
@@ -275,7 +282,7 @@ class CopyBackupVisitor(TreeVisitor):
         else:
             odst = re.sub(re.escape(self.curr), self.prev, dst)
             if self.verbose:
-                print "ln <%s> <%s>" % (dst, odst)
+                print("ln <%s> <%s>" % (dst, odst))
             if not self.dryrun:
                 # Create hard link in destination.
                 link(odst, dst)
@@ -287,7 +294,7 @@ class CopyBackupVisitor(TreeVisitor):
         dst = re.sub(re.escape(self.src), self.dst, file)
         try:
             ostats = os.lstat(old)
-        except OSError, e:
+        except OSError as e:
             if e.errno in (errno.ENOENT, errno.ENOTDIR, errno.EISDIR):
                 # File became directory, or vice versa, or just isn't there.
                 ostats = None
@@ -295,7 +302,7 @@ class CopyBackupVisitor(TreeVisitor):
                 raise e
         if ostats is None or stats[stat.ST_INO] != ostats[stat.ST_INO]:
             if self.verbose:
-                print "cp <%s> <%s>" % (file, dst)
+                print("cp <%s> <%s>" % (file, dst))
             if not self.dryrun:
                 try:
                     # Copy file contents from snapshot to destination.
@@ -304,14 +311,14 @@ class CopyBackupVisitor(TreeVisitor):
                     shutil.copystat(file, dst)
                     # Copy the owner/group values to destination.
                     chown(dst, stats[stat.ST_UID], stats[stat.ST_GID])
-                except IOError, e:
-                    print "ERROR '{}' processing file {}".format(e, file)
+                except IOError as e:
+                    print("ERROR '{}' processing file {}".format(e, file))
             if not self.dryrun or self.extattr:
                 copyxattr(file, dst)
         else:
             odst = re.sub(re.escape(self.curr), self.prev, dst)
             if self.verbose:
-                print "ln <%s> <%s>" % (dst, odst)
+                print("ln <%s> <%s>" % (dst, odst))
             if not self.dryrun:
                 # Create hard link in destination.
                 link(odst, dst)
@@ -323,7 +330,7 @@ class CopyBackupVisitor(TreeVisitor):
         dst = re.sub(re.escape(self.src), self.dst, link)
         try:
             ostats = os.lstat(old)
-        except OSError, e:
+        except OSError as e:
             if e.errno in (errno.ENOENT, errno.ENOTDIR, errno.EISDIR):
                 # File became directory, or vice versa, or just isn't there.
                 ostats = None
@@ -332,7 +339,7 @@ class CopyBackupVisitor(TreeVisitor):
         if ostats is None or stats[stat.ST_INO] != ostats[stat.ST_INO]:
             lnk = os.readlink(link)
             if self.verbose:
-                print "ln -s <%s> <%s>" % (lnk, dst)
+                print("ln -s <%s> <%s>" % (lnk, dst))
             if not self.dryrun:
                 # Copy link to destination.
                 os.symlink(lnk, dst)
@@ -342,7 +349,7 @@ class CopyBackupVisitor(TreeVisitor):
         else:
             odst = re.sub(re.escape(self.curr), self.prev, dst)
             if self.verbose:
-                print "ln <%s> <%s>" % (dst, odst)
+                print("ln <%s> <%s>" % (dst, odst))
             if not self.dryrun:
                 # Create hard link in destination.
                 link(odst, dst)
@@ -353,7 +360,7 @@ def copybackupdb(srcbase, dstbase, verbose, dryrun, extattr):
     # Validate that srcbase contains a backup database.
     srcdb = os.path.join(srcbase, 'Backups.backupdb')
     if not os.path.exists(srcdb):
-        print "ERROR: %s does not contain a Time Machine backup!" % srcbase
+        print("ERROR: %s does not contain a Time Machine backup!" % srcbase)
         sys.exit(2)
     dstdb = os.path.join(dstbase, 'Backups.backupdb')
     # Get a list of entries in the backupdb (typically just one).
@@ -382,7 +389,7 @@ def copybackupdb(srcbase, dstbase, verbose, dryrun, extattr):
         def mkdest(source, target):
             stats = os.lstat(source)
             if verbose:
-                print "mkdir <%s>" % target
+                print("mkdir <%s>" % target)
             if not dryrun:
                 os.makedirs(target)
                 shutil.copystat(source, target)
@@ -394,11 +401,11 @@ def copybackupdb(srcbase, dstbase, verbose, dryrun, extattr):
         srcbkup = os.path.join(src, entries[0])
         dstbkup = os.path.join(dst, entries[0])
         if not extattr and os.path.exists(dstbkup):
-            print "%s already exists, skipping..." % entries[0]
+            print("%s already exists, skipping..." % entries[0])
         else:
             mkdest(srcbkup, dstbkup)
             visitor = CopyInitialVisitor(verbose, dryrun, extattr)
-            print "Copying backup %s -- this may take a while..." % entries[0]
+            print("Copying backup %s -- this may take a while..." % entries[0])
             visitor.copytree(srcbkup, dstbkup)
         # Copy all subsequent backup snapshots.
         prev = entries[0]
@@ -409,18 +416,18 @@ def copybackupdb(srcbase, dstbase, verbose, dryrun, extattr):
             srcbkup = os.path.join(src, entry)
             dstbkup = os.path.join(dst, entry)
             if not extattr and os.path.exists(dstbkup):
-                print "%s already exists, skipping..." % entry
+                print("%s already exists, skipping..." % entry)
             else:
                 mkdest(srcbkup, dstbkup)
                 visitor = CopyBackupVisitor(previous, prev, entry,
                                             verbose, dryrun, extattr)
-                print "Copying backup %s..." % entry
+                print("Copying backup %s..." % entry)
                 visitor.copytree(srcbkup, dstbkup)
             prev = entry
         # Create Latest symlink pointing to last entry.
         latest = os.path.join(dst, 'Latest')
         if verbose:
-            print "ln -s <%s> <%s>" % (entries[-1], latest)
+            print("ln -s <%s> <%s>" % (entries[-1], latest))
         if not dryrun:
             if os.path.lexists(latest):
                 # Seems root cannot delete the symlink, so have the real
@@ -439,22 +446,22 @@ def copybackupdb(srcbase, dstbase, verbose, dryrun, extattr):
             src = os.path.join(srcbase, entry)
             dst = os.path.join(dstbase, entry)
             if verbose:
-                print "cp <%s> <%s>" % (src, dst)
+                print("cp <%s> <%s>" % (src, dst))
             if not dryrun:
                 try:
                     shutil.copyfile(src, dst)
                     shutil.copystat(src, dst)
                     stats = os.lstat(src)
                     chown(dst, stats[stat.ST_UID], stats[stat.ST_GID])
-                except IOError, e:
-                    print "ERROR '{}' processing file {}".format(e, src)
+                except IOError as e:
+                    print("ERROR '{}' processing file {}".format(e, src))
             if not dryrun or extattr:
                 copyxattr(src, dst)
 
 
 def usage():
     """Display a usage summary."""
-    print """Usage: timecopy.py [-hnvx] [--nochown] <source> <target>
+    print("""Usage: timecopy.py [-hnvx] [--nochown] <source> <target>
 
 Copies a Mac OS X Time Machine volume (set of backups) from one location
 to another, such as from one disk to another, or from one disk image to
@@ -493,7 +500,7 @@ to gain the necessary privileges, unless -n or --dry-run is given.
 \tmissing the necessary extended attributes. Normally this script
 \twill already have copied the extended attributes as part of the
 \tcopying process, so this option is only needed when you have created
-\tthe copy using some other means."""
+\tthe copy using some other means.""")
 
 
 def main():
@@ -503,9 +510,9 @@ def main():
     longopts = ["help", "dry-run", "nochown", "verbose", "xattr"]
     try:
         opts, args = getopt.getopt(sys.argv[1:], shortopts, longopts)
-    except getopt.GetoptError, err:
-        print str(err)
-        print "Invoke with -h for help."
+    except getopt.GetoptError as err:
+        print(str(err))
+        print("Invoke with -h for help.")
         sys.exit(2)
     verbose = False
     dryrun = False
@@ -530,27 +537,27 @@ def main():
         else:
             assert False, "unhandled option: %s" % opt
     if len(args) != 2:
-        print "Missing required arguments. Invoke with -h for help."
+        print("Missing required arguments. Invoke with -h for help.")
         sys.exit(2)
     # Check that the given source and destination exist.
     src = args[0]
     if not os.path.exists(src):
-        print "%s does not exist!" % src
+        print("%s does not exist!" % src)
         sys.exit(1)
     if not os.path.isdir(src):
-        print "%s is not a directory!" % src
+        print("%s is not a directory!" % src)
         sys.exit(1)
     dst = args[1]
     if not os.path.exists(dst):
-        print "%s does not exist!" % dst
+        print("%s does not exist!" % dst)
         sys.exit(1)
     if not os.path.isdir(dst):
-        print "%s is not a directory!" % dst
+        print("%s is not a directory!" % dst)
         sys.exit(1)
     try:
         copybackupdb(src, dst, verbose, dryrun, extattr)
     except KeyboardInterrupt:
-        print "Exiting..."
+        print("Exiting...")
         sys.exit(1)
 
 
